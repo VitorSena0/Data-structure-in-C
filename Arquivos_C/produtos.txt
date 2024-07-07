@@ -1,0 +1,11 @@
+Arroz 10.4
+Feijao 8.5
+Macarrao 5.0
+Carne 20.0
+Frango 15.0
+Peixe 25.0
+Ovo 5.0
+Leite 3.5
+Queijo 10.0
+Presunto 8.0
+Coca 7.70
