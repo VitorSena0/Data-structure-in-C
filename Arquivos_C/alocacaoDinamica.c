@@ -135,6 +135,17 @@ uint32_t editarProduto(Produto **produtos, uint32_t *qtdProdutos){
     return 0; // Retornar 0 se nenhum produto com o ID foi encontrado
 }
 
+uint32_t deletarProduto(Produto **produtos, uint32_t *qtdProdutos){
+    uint8_t escolha;
+    printf("Digite o ID que deseja deletar:\n");
+    scanf("%d", &escolha);
+    for(uint32_t i = 0; i < *qtdProdutos; i++){
+         if((*produtos)[i].id == escolha){
+            // Tem que mover os elementos subsequentes para trás, pois dessa maneira vai sobrescrever os itens do objeto a ser deletado. Depois utiliza o realloc para diminuir o excesso de meória deixado
+         }
+    }
+}
+
 
 // --------------------[Listar produtos]--------------------
 
