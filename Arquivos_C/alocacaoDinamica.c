@@ -4,9 +4,6 @@
 #include <stdint.h>
 
 
-// Explica as funções que manipulam os arquivos: fscanf, sscanf, fgets, fwrite, fread, fprintf, fputs, entre outros.
-// https://chatgpt.com/share/68e7bc4d-3fed-4167-9139-4e5d1135e1a7 
-
 // Mercadinho
 
 typedef struct { // Estrutura dos produtos
@@ -20,10 +17,14 @@ void printaErroAlocacao() {  // Função para printar erro de alocação
     exit(EXIT_FAILURE);
 }
 
+// --------------------[Protótipos]--------------------
+
 void adicionarProduto(Produto **produtos, uint32_t *qtdProdutos); // Inicializa a função de adicionar produtos
 void listarProdutos(Produto *produtos, uint32_t qtdProdutos); // Inicializa a função de listar produtos
 int32_t contaLinhas(const char *nomeArquivo); // Inicializa a função de contar linhas
 Produto *inicializaProdutos(const char *nomeArquivo, uint32_t *qtdProdutos); // Inicializa a função de inicializar produtos
+
+// --------------------[Main]--------------------
 
 int32_t main() {
 
@@ -67,12 +68,17 @@ int32_t main() {
     return 0;
 }
 
+// --------------------[Adicionar produto]--------------------
+
 void adicionarProduto(Produto **produtos, uint32_t *qtdProdutos) {
     uint32_t numProdutos;
 
     printf("Quantos produtos deseja adicionar?\n");
     scanf("%u", &numProdutos);
     // Realoca a memória para a quantidade de produtos a serem adicionados
+
+    // Explica o uso do ponteiro duplo e da função realloc para alocar memória dinamicamente
+    // https://chatgpt.com/share/eb5a7da5-ca6b-4372-9afb-a5edecb6271e
     *produtos = realloc(*produtos, (*qtdProdutos + numProdutos) * sizeof(Produto));
     if (*produtos == NULL) {
         printaErroAlocacao();
@@ -98,6 +104,8 @@ void listarProdutos(Produto *produtos, uint32_t qtdProdutos) {
     }
 }
 
+// --------------------[Contar linhas]--------------------
+
 int32_t contaLinhas(const char *nomeArquivo) {// Recebe o nome do arquivo e retorna a quantidade de linhas
     FILE *arquivo = fopen(nomeArquivo, "r"); // Abre o arquivo em modo de leitura
     if (arquivo == NULL) {
@@ -117,6 +125,8 @@ int32_t contaLinhas(const char *nomeArquivo) {// Recebe o nome do arquivo e reto
     fclose(arquivo); // Finaliza a leitura do arquivo
     return linhas + 1; // Contar a última linha, mesmo sem \n
 }
+
+// --------------------[Inicializa produtos]--------------------
 
 Produto *inicializaProdutos(const char *nomeArquivo, uint32_t *qtdProdutos) { // Recebe o nome do arquivo e a quantidade de produtos
     FILE *arquivo = fopen(nomeArquivo, "r"); // Abre o arquivo em modo de leitura
@@ -138,7 +148,8 @@ Produto *inicializaProdutos(const char *nomeArquivo, uint32_t *qtdProdutos) { //
         fclose(arquivo);
         return NULL;
     }
-
+    // Explica as funções que manipulam os arquivos: fscanf, sscanf, fgets, fwrite, fread, fprintf, fputs, entre outros.
+    // https://chatgpt.com/share/68e7bc4d-3fed-4167-9139-4e5d1135e1a7 
     for (uint32_t i = 0; i < *qtdProdutos; i++) {
         produtos[i].id = i;
         /*
