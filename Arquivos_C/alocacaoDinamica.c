@@ -19,7 +19,8 @@ void printaErroAlocacao() {  // Função para printar erro de alocação
 
 // --------------------[Protótipos]--------------------
 
-void adicionarProduto(Produto **produtos, uint32_t *qtdProdutos); // Inicializa a função de adicionar produtos
+uint32_t adicionarProduto(Produto **produtos, uint32_t *qtdProdutos); // Inicializa a função de adicionar produtos
+uint32_t editarProduto(Produto **produtos, uint32_t *qtdProdutos);
 void listarProdutos(Produto *produtos, uint32_t qtdProdutos); // Inicializa a função de listar produtos
 int32_t contaLinhas(const char *nomeArquivo); // Inicializa a função de contar linhas
 Produto *inicializaProdutos(const char *nomeArquivo, uint32_t *qtdProdutos); // Inicializa a função de inicializar produtos
@@ -38,7 +39,7 @@ int32_t main() {
 
     printf("\n------------[Bem vindo ao mercadinho do Vitinho]------------\n");
 
-    void (*crud[])(Produto **, uint32_t *) = {adicionarProduto /*, editarProduto, excluirProduto*/}; // Vetor de funções para armazenar as funções de CRUD
+    uint32_t (*crud[])(Produto **, uint32_t *) = {adicionarProduto , editarProduto/*, excluirProduto*/}; // Vetor de funções para armazenar as funções de CRUD
 
     while (1) { // Loop para o menu
         listarProdutos(produtos, qtdProdutos);
@@ -57,7 +58,7 @@ int32_t main() {
             getchar();
         }
 
-        if (opcao == 1) {
+        if (opcao == 1 || opcao == 2) {
             crud[opcao - 1](&produtos, &qtdProdutos); // Chama a função de adicionar produto
         } else if (opcao == 5) { // Verifica se a opção é para sair
             break;
@@ -68,9 +69,9 @@ int32_t main() {
     return 0;
 }
 
-// --------------------[Adicionar produto]--------------------
+// --------------------[Adicionar produto (CRUD 1)]--------------------
 
-void adicionarProduto(Produto **produtos, uint32_t *qtdProdutos) {
+uint32_t adicionarProduto(Produto **produtos, uint32_t *qtdProdutos) {
     uint32_t numProdutos;
 
     printf("Quantos produtos deseja adicionar?\n");
@@ -82,6 +83,7 @@ void adicionarProduto(Produto **produtos, uint32_t *qtdProdutos) {
     *produtos = realloc(*produtos, (*qtdProdutos + numProdutos) * sizeof(Produto));
     if (*produtos == NULL) {
         printaErroAlocacao();
+        return 0;
     }
 
     for (uint32_t i = 0; i < numProdutos; i++) {
@@ -95,7 +97,46 @@ void adicionarProduto(Produto **produtos, uint32_t *qtdProdutos) {
     *qtdProdutos += numProdutos;
     printf("Produtos adicionados com sucesso!\n");
     listarProdutos(*produtos, *qtdProdutos);
+    return 1;
 }
+
+// --------------------[Editar produto (CRUD 2)]--------------------
+uint32_t editarProduto(Produto **produtos, uint32_t *qtdProdutos){
+    uint32_t escolha_id, escolha_opcao;
+
+    printf("Digite o ID do produto que deseja editar:\n");
+    scanf("%u", &escolha_id);
+
+    for(uint32_t i = 0; i < *qtdProdutos; i++){
+        if((*produtos)[i].id == escolha_id){
+            printf("Quer editar o nome, preco ou ambos?\nOpcao: (1), (2) e (3) respectivamente:");
+            scanf("%u", &escolha_opcao);
+
+            if(escolha_opcao == 1){
+                printf("\nDigite um novo NOME para o produto:\n");
+                scanf("%19s", (*produtos)[i].nome); 
+            } else if(escolha_opcao == 2){
+                printf("\nDigite um novo VALOR para o produto:\n");
+                scanf("%f", &(*produtos)[i].preco);
+            } else if(escolha_opcao == 3){
+                printf("\nDigite um novo NOME e VALOR para o produto:\n");
+                scanf("%19s", (*produtos)[i].nome); 
+                scanf("%f", &(*produtos)[i].preco);
+            } else {
+                printf("\nOpcao invalida, tente novamente\n");
+                return 0; // Retornar 0 indica falha na edição
+            }
+            
+            return 1; // Retornar 1 indica sucesso na edição
+        } 
+    }
+
+    printf("Produto com ID %u nao encontrado.\n", escolha_id);
+    return 0; // Retornar 0 se nenhum produto com o ID foi encontrado
+}
+
+
+// --------------------[Listar produtos]--------------------
 
 void listarProdutos(Produto *produtos, uint32_t qtdProdutos) {
     printf("\nProdutos disponiveis:\n");
@@ -104,7 +145,7 @@ void listarProdutos(Produto *produtos, uint32_t qtdProdutos) {
     }
 }
 
-// --------------------[Contar linhas]--------------------
+// --------------------[Contar linhas]----------------------
 
 int32_t contaLinhas(const char *nomeArquivo) {// Recebe o nome do arquivo e retorna a quantidade de linhas
     FILE *arquivo = fopen(nomeArquivo, "r"); // Abre o arquivo em modo de leitura
