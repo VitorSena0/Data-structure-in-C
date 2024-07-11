@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <time.h>
 
 
 // Mercadinho
@@ -19,8 +20,9 @@ void printaErroAlocacao() {  // Função para printar erro de alocação
 
 // --------------------[Protótipos]--------------------
 
-uint32_t adicionarProduto(Produto **produtos, uint32_t *qtdProdutos); // Inicializa a função de adicionar produtos
-uint32_t editarProduto(Produto **produtos, uint32_t *qtdProdutos);
+uint8_t adicionarProduto(Produto **produtos, uint32_t *qtdProdutos); // Inicializa a função de adicionar produtos
+uint8_t editarProduto(Produto **produtos, uint32_t *qtdProdutos);
+uint8_t deletarProduto(Produto **produtos, uint32_t *qtdProdutos);
 void listarProdutos(Produto *produtos, uint32_t qtdProdutos); // Inicializa a função de listar produtos
 int32_t contaLinhas(const char *nomeArquivo); // Inicializa a função de contar linhas
 Produto *inicializaProdutos(const char *nomeArquivo, uint32_t *qtdProdutos); // Inicializa a função de inicializar produtos
@@ -29,8 +31,14 @@ Produto *inicializaProdutos(const char *nomeArquivo, uint32_t *qtdProdutos); // 
 
 int32_t main() {
 
+    clock_t inicio, fim;
+    double tempo_gasto;
+
+
+
     int8_t opcao; // Variável para escolher a opção do menu
     uint32_t qtdProdutos; // Variável para a quantidade de produtos a serem inseridos inicialmente no arquivo
+    inicio = clock();
     Produto *produtos = inicializaProdutos("./Arquivos_C/produtos.txt", &qtdProdutos); // Inicializa os produtos
 
     if (produtos == NULL) {
@@ -39,7 +47,7 @@ int32_t main() {
 
     printf("\n------------[Bem vindo ao mercadinho do Vitinho]------------\n");
 
-    uint32_t (*crud[])(Produto **, uint32_t *) = {adicionarProduto , editarProduto/*, excluirProduto*/}; // Vetor de funções para armazenar as funções de CRUD
+    uint8_t (*crud[])(Produto **, uint32_t *) = {adicionarProduto , editarProduto, deletarProduto}; // Vetor de funções para armazenar as funções de CRUD
 
     while (1) { // Loop para o menu
         listarProdutos(produtos, qtdProdutos);
@@ -58,12 +66,15 @@ int32_t main() {
             getchar();
         }
 
-        if (opcao == 1 || opcao == 2) {
+        if (opcao != 5) {
             crud[opcao - 1](&produtos, &qtdProdutos); // Chama a função de adicionar produto
-        } else if (opcao == 5) { // Verifica se a opção é para sair
+        } else { // Verifica se a opção é para sair
             break;
         }
     }
+    fim = clock();
+    tempo_gasto = ((double) (fim - inicio)) / CLOCKS_PER_SEC;
+    printf("Tempo de execucao: %f segundos\n", tempo_gasto);
 
     free(produtos); // Libera a memória alocada para os produtos
     return 0;
@@ -71,7 +82,7 @@ int32_t main() {
 
 // --------------------[Adicionar produto (CRUD 1)]--------------------
 
-uint32_t adicionarProduto(Produto **produtos, uint32_t *qtdProdutos) {
+uint8_t adicionarProduto(Produto **produtos, uint32_t *qtdProdutos) {
     uint32_t numProdutos;
 
     printf("Quantos produtos deseja adicionar?\n");
@@ -101,7 +112,7 @@ uint32_t adicionarProduto(Produto **produtos, uint32_t *qtdProdutos) {
 }
 
 // --------------------[Editar produto (CRUD 2)]--------------------
-uint32_t editarProduto(Produto **produtos, uint32_t *qtdProdutos){
+uint8_t editarProduto(Produto **produtos, uint32_t *qtdProdutos){
     uint32_t escolha_id, escolha_opcao;
 
     printf("Digite o ID do produto que deseja editar:\n");
@@ -135,15 +146,29 @@ uint32_t editarProduto(Produto **produtos, uint32_t *qtdProdutos){
     return 0; // Retornar 0 se nenhum produto com o ID foi encontrado
 }
 
-uint32_t deletarProduto(Produto **produtos, uint32_t *qtdProdutos){
+uint8_t deletarProduto(Produto **produtos, uint32_t *qtdProdutos){
     uint8_t escolha;
     printf("Digite o ID que deseja deletar:\n");
     scanf("%d", &escolha);
     for(uint32_t i = 0; i < *qtdProdutos; i++){
          if((*produtos)[i].id == escolha){
             // Tem que mover os elementos subsequentes para trás, pois dessa maneira vai sobrescrever os itens do objeto a ser deletado. Depois utiliza o realloc para diminuir o excesso de meória deixado
+            for(uint32_t j = i; j < *qtdProdutos - 1; j++){
+                (*produtos)[j] = (*produtos)[j + 1];
+                (*produtos)[j].id -= 1;
+            }
+            *produtos = realloc(*produtos, (*qtdProdutos - 1) * sizeof(Produto));
+                if (*produtos == NULL) {
+                    printaErroAlocacao();
+                return 0;
+                }
+
+            (*qtdProdutos)--;
+            return 1;
+           }
          }
-    }
+            printf("\nID do produto nao existe\n");
+            return 0;
 }
 
 
