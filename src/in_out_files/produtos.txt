@@ -1,0 +1,12 @@
+Arroz 10.40
+Feijao 8.50
+Macarrao 5.00
+Carne 20.00
+Frango 15.00
+Peixe 25.00
+Ovo 5.00
+Leite 3.50
+Queijo 10.00
+Presunto 8.00
+Coca 7.70
+NukeCola 500.00

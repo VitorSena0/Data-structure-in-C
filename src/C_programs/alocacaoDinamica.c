@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include <time.h>
+#include <time.h> 
 
 
 // Mercadinho
@@ -26,6 +26,7 @@ uint8_t deletarProduto(Produto **produtos, uint32_t *qtdProdutos);
 void listarProdutos(Produto *produtos, uint32_t qtdProdutos); // Inicializa a função de listar produtos
 int32_t contaLinhas(const char *nomeArquivo); // Inicializa a função de contar linhas
 Produto *inicializaProdutos(const char *nomeArquivo, uint32_t *qtdProdutos); // Inicializa a função de inicializar produtos
+uint8_t registraProdutos(Produto *produtos, uint32_t qtdProdutos,const char *string); // Inicializa a função de registrar produtos
 
 // --------------------[Main]--------------------
 
@@ -39,13 +40,13 @@ int32_t main() {
     int8_t opcao; // Variável para escolher a opção do menu
     uint32_t qtdProdutos; // Variável para a quantidade de produtos a serem inseridos inicialmente no arquivo
     inicio = clock();
-    Produto *produtos = inicializaProdutos("./Arquivos_C/produtos.txt", &qtdProdutos); // Inicializa os produtos
+    Produto *produtos = inicializaProdutos("Arquivos_C/produtos.txt", &qtdProdutos); // Inicializa os produtos
 
     if (produtos == NULL) {
         printaErroAlocacao();
     }
 
-    printf("\n------------[Bem vindo ao mercadinho do Vitinho]------------\n");
+    printf("\n------------[Bem vindo ao mercadinho]------------\n");
 
     uint8_t (*crud[])(Produto **, uint32_t *) = {adicionarProduto , editarProduto, deletarProduto}; // Vetor de funções para armazenar as funções de CRUD
 
@@ -56,7 +57,7 @@ int32_t main() {
         printf("Opcao 2: Editar produto\n");
         printf("Opcao 3: Excluir produto\n");
         printf("Opcao 4: Comprar produto\n");
-        printf("Opcao 5: Sair\n--->> ");
+        printf("Opcao 5: Salvar e sair\n--->> ");
         scanf("%hhd", &opcao);
         getchar(); // Limpa o buffer do teclado
 
@@ -69,6 +70,7 @@ int32_t main() {
         if (opcao != 5) {
             crud[opcao - 1](&produtos, &qtdProdutos); // Chama a função de adicionar produto
         } else { // Verifica se a opção é para sair
+            registraProdutos(produtos, qtdProdutos, "./Arquivos_C/produtos.txt");
             break;
         }
     }
@@ -85,8 +87,14 @@ int32_t main() {
 uint8_t adicionarProduto(Produto **produtos, uint32_t *qtdProdutos) {
     uint32_t numProdutos;
 
+    do{
     printf("Quantos produtos deseja adicionar?\n");
     scanf("%u", &numProdutos);
+    if(numProdutos != 1){
+      printf("Entrada invalida, digite novamente:\n");
+      while(getchar() != '\n');
+      }
+    }while (numProdutos != 1);
     // Realoca a memória para a quantidade de produtos a serem adicionados
 
     // Explica o uso do ponteiro duplo e da função realloc para alocar memória dinamicamente
@@ -98,10 +106,12 @@ uint8_t adicionarProduto(Produto **produtos, uint32_t *qtdProdutos) {
     }
 
     for (uint32_t i = 0; i < numProdutos; i++) {
-        printf("Digite o nome do produto:\n");
+        printf("Digite o nome do produto [%d]:\n", i+1);
         scanf("%19s", (*produtos)[*qtdProdutos + i].nome);
-        printf("Digite o preco do produto:\n");
+        getchar();
+        printf("Digite o preco do produto [%d]:\n", i+1);
         scanf("%f", &(*produtos)[*qtdProdutos + i].preco);
+        getchar();
         (*produtos)[*qtdProdutos + i].id = *qtdProdutos + i;
     }
 
@@ -142,6 +152,7 @@ uint8_t editarProduto(Produto **produtos, uint32_t *qtdProdutos){
         } 
     }
 
+
     printf("Produto com ID %u nao encontrado.\n", escolha_id);
     return 0; // Retornar 0 se nenhum produto com o ID foi encontrado
 }
@@ -149,7 +160,7 @@ uint8_t editarProduto(Produto **produtos, uint32_t *qtdProdutos){
 uint8_t deletarProduto(Produto **produtos, uint32_t *qtdProdutos){
     uint8_t escolha;
     printf("Digite o ID que deseja deletar:\n");
-    scanf("%d", &escolha);
+    scanf("%hhu", &escolha);
     for(uint32_t i = 0; i < *qtdProdutos; i++){
          if((*produtos)[i].id == escolha){
             // Tem que mover os elementos subsequentes para trás, pois dessa maneira vai sobrescrever os itens do objeto a ser deletado. Depois utiliza o realloc para diminuir o excesso de meória deixado
@@ -191,7 +202,7 @@ int32_t contaLinhas(const char *nomeArquivo) {// Recebe o nome do arquivo e reto
     }
 
     int32_t linhas = 0;
-    char caracter;
+    int32_t caracter;
 
     while ((caracter = fgetc(arquivo)) != EOF) { // Enquanto não chegar no final do arquivo ele conta as linhas
         if (caracter == '\n') { 
@@ -212,7 +223,7 @@ Produto *inicializaProdutos(const char *nomeArquivo, uint32_t *qtdProdutos) { //
         return NULL;
     }
 
-    *qtdProdutos = contaLinhas(nomeArquivo); // Conta a quantidade de linhas do arquivo
+    *qtdProdutos = (uint32_t)contaLinhas(nomeArquivo); // Conta a quantidade de linhas do arquivo
     if (*qtdProdutos <= 0) {
         printf("Nenhum produto cadastrado\n");
         fclose(arquivo);
@@ -252,4 +263,24 @@ Produto *inicializaProdutos(const char *nomeArquivo, uint32_t *qtdProdutos) { //
 
     fclose(arquivo); 
     return produtos; 
+}
+
+// --------------------[Registra produtos]--------------------
+
+uint8_t registraProdutos(Produto *produtos, uint32_t qtdProdutos,const char *string){
+  FILE *arquivo = fopen(string, "w"); // Abre o arquivo em modo de escrita
+  if(arquivo == NULL){
+    printf("Erro ao abrir arquivo\n");
+    return 0;
+  }
+
+  for(uint32_t i = 0; i < qtdProdutos; i++){
+  if (i == qtdProdutos - 1) { // Verifica se é a última linha para não adicionar \n e o arquivo txt não ficar com uma linha em branco
+    fprintf(arquivo, "%s %.2f", produtos[i].nome, produtos[i].preco);
+  } else {
+    fprintf(arquivo, "%s %.2f\n", produtos[i].nome, produtos[i].preco);
+  }
+}
+  fclose(arquivo);
+  return 1;
 }
