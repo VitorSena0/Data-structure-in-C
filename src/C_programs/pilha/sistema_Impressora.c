@@ -7,6 +7,7 @@
 #define TAM_NOME 51
 #define TAM_LINHA_ENTRADA 60
 
+// ------------------- Definicao das estruturas -------------------------
 struct DocumentoLista {
     struct DocumentoVetor *documento;
     struct DocumentoLista *proximo;
@@ -20,7 +21,7 @@ struct DocumentoVetor {
 struct Impressora {
     char nomeImpr[TAM_NOME];
     struct DocumentoLista *pilhaDocsTopo;
-    uint32_t tempoConclusao;
+    int numPaginasRestantes;  // Número de páginas restantes para ser impresso
 };
 
 struct FilaImpressora {
@@ -46,7 +47,7 @@ void liberarFilaImpressora(struct FilaImpressora *fila);
 void liberarFilaDocumento(struct FilaDocumento *fila);
 void removeQuebraLinha(char *str);
 void processarDocumentos(struct FilaImpressora *filaImpressoras, struct FilaDocumento *filaDocumentos, FILE *outputFILE);
-void adicionarDocumentoNaImpressora(struct Impressora *impressora, struct DocumentoVetor *documento, uint32_t tempoAtual);
+void adicionarDocumentoNaImpressora(struct Impressora *impressora, struct DocumentoVetor *documento);
 void imprimirPilhaDocumentosImpressoras(struct FilaImpressora *filaImpressoras, FILE *outputFILE);
 
 // ------------------- Funcao principal -------------------------
@@ -104,7 +105,6 @@ void processarArquivo(const char *input, const char *output) {
             removeQuebraLinha(linha);
             adicionarImpressoraFila(&filaImpressoras, linha);
 
-            fprintf(outputFILE, "Impressora %s adicionada\n", filaImpressoras.impressoras[i].nomeImpr);
         } else {
             printf("Erro ao ler a impressora\n");
         }
@@ -133,9 +133,9 @@ void processarArquivo(const char *input, const char *output) {
 
     filaDocumentos.capacidade = numDocumentos;
     filaDocumentos.numDocumentosAtual = 0;
+    filaDocumentos.total_paginas = 0; // Inicializa total_paginas
     filaDocumentos.inicioFila = 0;
     filaDocumentos.fimFila = 0;
-    filaDocumentos.total_paginas = 0; // Inicializa total_paginas
 
     for (uint32_t i = 0; i < numDocumentos; i++) {
         if (fgets(linha, TAM_LINHA_ENTRADA, inputFILE)) {
@@ -145,25 +145,12 @@ void processarArquivo(const char *input, const char *output) {
             sscanf(linha, "%50s %hu", nomeDoc, &numPaginas);
             adicionarDocumentoFila(&filaDocumentos, nomeDoc, numPaginas);
 
-            fprintf(outputFILE, "Documento %s-%hu\n", nomeDoc, numPaginas);
         } else {
             printf("Erro ao ler o documento\n");
         }
     }
 
     processarDocumentos(&filaImpressoras, &filaDocumentos, outputFILE);
-
-
-       for (uint16_t i = 0; i < filaImpressoras.numImpressorasAtual; i++) {
-        struct Impressora *impressora = &filaImpressoras.impressoras[i];
-        fprintf(outputFILE, "Impressora %s:\n", impressora->nomeImpr);
-        while (impressora->pilhaDocsTopo != NULL) {
-            fprintf(outputFILE, "  Documento %s - %hu paginas\n", impressora->pilhaDocsTopo->documento->nomeDoc, impressora->pilhaDocsTopo->documento->numPaginas);
-            impressora->pilhaDocsTopo = impressora->pilhaDocsTopo->proximo;
-        }
-    }
-
-
 
     fprintf(outputFILE, "Total de paginas: %u\n", filaDocumentos.total_paginas);
 
@@ -175,52 +162,61 @@ void processarArquivo(const char *input, const char *output) {
 
 // ------------------- Funcao para processar documentos -------------------------
 void processarDocumentos(struct FilaImpressora *filaImpressoras, struct FilaDocumento *filaDocumentos, FILE *outputFILE) {
-    uint32_t tempoAtual = 0;
+    uint16_t numImpressoras = filaImpressoras->numImpressorasAtual;
 
+    // Distribuir os primeiros n documentos para as n impressoras
+    for (uint16_t i = 0; i < numImpressoras && filaDocumentos->numDocumentosAtual > 0; i++) {
+        struct Impressora *impressora = &filaImpressoras->impressoras[i];
+        struct DocumentoVetor *documento = &filaDocumentos->documentos[filaDocumentos->inicioFila];
+        adicionarDocumentoNaImpressora(impressora, documento);
+
+        filaDocumentos->inicioFila = (filaDocumentos->inicioFila + 1) % filaDocumentos->capacidade;
+        filaDocumentos->numDocumentosAtual--;
+
+        fprintf(outputFILE, "[%s] ", impressora->nomeImpr);
+        struct DocumentoLista *docAtual = impressora->pilhaDocsTopo;
+        while (docAtual != NULL) {
+            fprintf(outputFILE, "%s-%hu, ", docAtual->documento->nomeDoc, docAtual->documento->numPaginas);
+            docAtual = docAtual->proximo;
+        }
+        fprintf(outputFILE, "\n");
+    }
+
+    // Distribuir os documentos restantes
     while (filaDocumentos->numDocumentosAtual > 0) {
-        // Encontra a próxima impressora a terminar
-        struct Impressora *impressoraMin = NULL;
-        uint32_t tempoMin = UINT32_MAX;
-        for (uint16_t i = 0; i < filaImpressoras->numImpressorasAtual; i++) {
-            struct Impressora *impressora = &filaImpressoras->impressoras[i];
-            if (impressora->pilhaDocsTopo && impressora->tempoConclusao < tempoMin) {
-                tempoMin = impressora->tempoConclusao;
-                impressoraMin = impressora;
+        // Encontrar a impressora com a menor carga de trabalho (menor numPaginasRestantes)
+        struct Impressora *impressoraMenorCarga = &filaImpressoras->impressoras[0];
+        for (uint16_t i = 1; i < numImpressoras; i++) {
+            if (filaImpressoras->impressoras[i].numPaginasRestantes < impressoraMenorCarga->numPaginasRestantes) {
+                impressoraMenorCarga = &filaImpressoras->impressoras[i];
             }
         }
 
-        if (impressoraMin == NULL) {
-            break;
+        // Adicionar documento na impressora com menor carga de trabalho
+        struct DocumentoVetor *documento = &filaDocumentos->documentos[filaDocumentos->inicioFila];
+        adicionarDocumentoNaImpressora(impressoraMenorCarga, documento);
+
+        filaDocumentos->inicioFila = (filaDocumentos->inicioFila + 1) % filaDocumentos->capacidade;
+        filaDocumentos->numDocumentosAtual--;
+
+        fprintf(outputFILE, "[%s] ", impressoraMenorCarga->nomeImpr);
+        struct DocumentoLista *docAtual = impressoraMenorCarga->pilhaDocsTopo;
+        while (docAtual != NULL) {
+            fprintf(outputFILE, "%s-%hu, ", docAtual->documento->nomeDoc, docAtual->documento->numPaginas);
+            docAtual = docAtual->proximo;
         }
-
-        // Avança o tempo até o próximo evento
-        tempoAtual = tempoMin;
-
-        // Remove o documento concluído
-        struct DocumentoLista *docConcluido = impressoraMin->pilhaDocsTopo;
-        impressoraMin->pilhaDocsTopo = docConcluido->proximo;
-        fprintf(outputFILE, "Documento %s impresso na impressora %s\n", docConcluido->documento->nomeDoc, impressoraMin->nomeImpr);
-        free(docConcluido->documento);
-        free(docConcluido);
-
-        // Adiciona um novo documento à impressora, se houver
-        if (filaDocumentos->numDocumentosAtual > 0) {
-            struct DocumentoVetor *docNovo = &filaDocumentos->documentos[filaDocumentos->inicioFila];
-            adicionarDocumentoNaImpressora(impressoraMin, docNovo, tempoAtual);
-
-            filaDocumentos->inicioFila = (filaDocumentos->inicioFila + 1) % filaDocumentos->capacidade;
-            filaDocumentos->numDocumentosAtual--;
-        }
+        fprintf(outputFILE, "\n");
     }
 }
 
 // ------------------- Funcao para adicionar documento na impressora -------------------------
-void adicionarDocumentoNaImpressora(struct Impressora *impressora, struct DocumentoVetor *documento, uint32_t tempoAtual) {
+void adicionarDocumentoNaImpressora(struct Impressora *impressora, struct DocumentoVetor *documento) {
     struct DocumentoLista *novoDocLista = malloc(sizeof(struct DocumentoLista));
-    novoDocLista->documento = documento;
+    novoDocLista->documento = malloc(sizeof(struct DocumentoVetor));
+    memcpy(novoDocLista->documento, documento, sizeof(struct DocumentoVetor));
     novoDocLista->proximo = impressora->pilhaDocsTopo;
     impressora->pilhaDocsTopo = novoDocLista;
-    impressora->tempoConclusao = tempoAtual + documento->numPaginas;
+    impressora->numPaginasRestantes += novoDocLista->documento->numPaginas;
 }
 
 // ------------------- Funcao para adicionar impressora na fila -------------------------
@@ -234,7 +230,7 @@ void adicionarImpressoraFila(struct FilaImpressora *fila, char *nomeImpr) {
     snprintf(impressora->nomeImpr, TAM_NOME, "%s", nomeImpr);
     impressora->nomeImpr[TAM_NOME - 1] = '\0'; // Garante o fim da string
     impressora->pilhaDocsTopo = NULL;
-    impressora->tempoConclusao = 0;
+    impressora->numPaginasRestantes = 0;
 
     fila->numImpressorasAtual++;
 }
@@ -258,6 +254,15 @@ void adicionarDocumentoFila(struct FilaDocumento *fila, char *nomeDoc, uint16_t 
 
 // ------------------- Funcao para liberar a fila de impressoras -------------------------
 void liberarFilaImpressora(struct FilaImpressora *fila) {
+    for (uint16_t i = 0; i < fila->numImpressorasAtual; i++) {
+        struct Impressora *impressora = &fila->impressoras[i];
+        while (impressora->pilhaDocsTopo != NULL) {
+            struct DocumentoLista *temp = impressora->pilhaDocsTopo;
+            impressora->pilhaDocsTopo = impressora->pilhaDocsTopo->proximo;
+            free(temp->documento);
+            free(temp);
+        }
+    }
     free(fila->impressoras);
     fila->impressoras = NULL;
 }
