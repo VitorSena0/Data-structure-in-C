@@ -176,7 +176,7 @@ void processarDocumentos(struct FilaImpressora *filaImpressoras, struct FilaDocu
         fprintf(outputFILE, "[%s] ", impressora->nomeImpr);
         struct DocumentoLista *docAtual = impressora->pilhaDocsTopo;
         while (docAtual != NULL) {
-            fprintf(outputFILE, "%s-%hu, ", docAtual->documento->nomeDoc, docAtual->documento->numPaginas);
+            fprintf(outputFILE, "%s-%hu", docAtual->documento->nomeDoc, docAtual->documento->numPaginas);
             docAtual = docAtual->proximo;
         }
         fprintf(outputFILE, "\n");
@@ -201,11 +201,11 @@ void processarDocumentos(struct FilaImpressora *filaImpressoras, struct FilaDocu
 
         fprintf(outputFILE, "[%s] ", impressoraMenorCarga->nomeImpr);
         struct DocumentoLista *docAtual = impressoraMenorCarga->pilhaDocsTopo;
-        while (docAtual != NULL) {
+        while (docAtual->proximo != NULL) {
             fprintf(outputFILE, "%s-%hu, ", docAtual->documento->nomeDoc, docAtual->documento->numPaginas);
             docAtual = docAtual->proximo;
         }
-        fprintf(outputFILE, "\n");
+        fprintf(outputFILE, "%s-%hu\n", docAtual->documento->nomeDoc, docAtual->documento->numPaginas);
     }
 }
 
