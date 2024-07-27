@@ -234,7 +234,6 @@ void processarDocumentos(struct FilaImpressora *filaImpressoras, struct FilaDocu
           }
       }
       if (documentosRestantes && impressoraMenorCarga != NULL) {
-          struct DocumentoLista *docAtual = impressoraMenorCarga->pilhaDocsTopo;
           empilhaDocsProcessados(&pilhaDocsProcessados,impressoraMenorCarga->pilhaDocsTopo->documento->nomeDoc,impressoraMenorCarga->pilhaDocsTopo->documento->numPaginas);
           impressoraMenorCarga->pilhaDocsTopo = NULL; // Remover os documentos já processados da impressora
       }
