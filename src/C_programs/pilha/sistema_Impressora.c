@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
         printf("Quantidade de argumentos incorreta\n");
         return -1;
     }
-    
+
     processarArquivo(argv[1], argv[2]);
 
     return 0;
@@ -80,7 +80,12 @@ void processarArquivo(const char *input, const char *output) {
     char linha[TAM_LINHA_ENTRADA];
     uint16_t numImpressoras, numDocumentos;
 
-    fgets(linha, TAM_LINHA_ENTRADA, inputFILE);
+    if(fgets(linha, TAM_LINHA_ENTRADA, inputFILE) == NULL){
+        printf("Erro ao ler o arquivo\n");
+        fclose(inputFILE);
+        fclose(outputFILE);
+        return;
+    }
     numImpressoras = (uint16_t)atoi(linha);
     if (numImpressoras == 0) { // Verificação mínima para evitar possíveis erros
         printf("Erro ao ler o numero de impressoras\n");
@@ -112,7 +117,12 @@ void processarArquivo(const char *input, const char *output) {
         }
     }
 
-    fgets(linha, TAM_LINHA_ENTRADA, inputFILE);
+  if(fgets(linha, TAM_LINHA_ENTRADA, inputFILE) == NULL){
+      printf("Erro ao ler o arquivo\n");
+      fclose(inputFILE);
+      fclose(outputFILE);
+      return;
+  }
     numDocumentos = (uint16_t)atoi(linha);
     if (numDocumentos == 0) { // Verificação mínima para evitar possíveis erros
         printf("Erro ao ler o numero de documentos\n");
@@ -154,8 +164,6 @@ void processarArquivo(const char *input, const char *output) {
 
     processarDocumentos(&filaImpressoras, &filaDocumentos, outputFILE);
 
-    fprintf(outputFILE, "Total de paginas: %u\n", filaDocumentos.total_paginas);
-
     fclose(inputFILE);
     fclose(outputFILE);
     liberarFilaImpressora(&filaImpressoras);
@@ -171,7 +179,7 @@ void processarDocumentos(struct FilaImpressora *filaImpressoras, struct FilaDocu
     for (uint16_t i = 0; i < numImpressoras && filaDocumentos->numDocumentosAtual > 0; i++) { // Verifica se ainda há documentos
         struct Impressora *impressora = &filaImpressoras->impressoras[i]; // Pega a impressora i
         struct DocumentoVetor *documento = &filaDocumentos->documentos[filaDocumentos->inicioFila]; // Pega o documento i
-        empilhaDocsProcessados(&pilhaDocsProcessados, documento->nomeDoc, documento->numPaginas); // Adiciona o documento na pilha de documentos processados
+
         adicionarDocumentoNaImpressora(impressora, documento); // Adiciona o documento na impressora
 
         filaDocumentos->inicioFila = (filaDocumentos->inicioFila + 1) % filaDocumentos->capacidade; // Atualiza o inicio da fila
@@ -196,11 +204,9 @@ void processarDocumentos(struct FilaImpressora *filaImpressoras, struct FilaDocu
                 impressoraMenorCarga = &filaImpressoras->impressoras[i]; // Atualiza a impressora com a menor carga
             }
         }
-
         struct DocumentoVetor *documento = &filaDocumentos->documentos[filaDocumentos->inicioFila]; // Pega o documento i
+        empilhaDocsProcessados(&pilhaDocsProcessados, impressoraMenorCarga->pilhaDocsTopo->documento->nomeDoc, impressoraMenorCarga->pilhaDocsTopo->documento->numPaginas); // Adiciona o documento na pilha de documentos processados
         adicionarDocumentoNaImpressora(impressoraMenorCarga, documento); // Adiciona o documento na impressora
-        empilhaDocsProcessados(&pilhaDocsProcessados, documento->nomeDoc, documento->numPaginas); // Adiciona o documento na pilha de documentos processados
-
         filaDocumentos->inicioFila = (filaDocumentos->inicioFila + 1) % filaDocumentos->capacidade; // Atualiza o inicio da fila
         filaDocumentos->numDocumentosAtual--; // Atualiza o numero de documentos
 
@@ -213,7 +219,29 @@ void processarDocumentos(struct FilaImpressora *filaImpressoras, struct FilaDocu
         fprintf(outputFILE, "%s-%hup\n", docAtual->documento->nomeDoc, docAtual->documento->numPaginas);
     }
 
+  // Adicionar todos os documentos restantes das impressoras na pilha de documentos processados
+  // Adicionar todos os documentos restantes das impressoras na pilha de documentos processados
+  int documentosRestantes = 1;
+  while (documentosRestantes) {
+      documentosRestantes = 0;
+      struct Impressora *impressoraMenorCarga = NULL;
+      for (uint16_t i = 0; i < numImpressoras; i++) {
+          if (filaImpressoras->impressoras[i].pilhaDocsTopo != NULL) {
+              if (impressoraMenorCarga == NULL || filaImpressoras->impressoras[i].numPaginasRestantes < impressoraMenorCarga->numPaginasRestantes) {
+                  impressoraMenorCarga = &filaImpressoras->impressoras[i];
+              }
+              documentosRestantes = 1;
+          }
+      }
+      if (documentosRestantes && impressoraMenorCarga != NULL) {
+          struct DocumentoLista *docAtual = impressoraMenorCarga->pilhaDocsTopo;
+          empilhaDocsProcessados(&pilhaDocsProcessados,impressoraMenorCarga->pilhaDocsTopo->documento->nomeDoc,impressoraMenorCarga->pilhaDocsTopo->documento->numPaginas);
+          impressoraMenorCarga->pilhaDocsTopo = NULL; // Remover os documentos já processados da impressora
+      }
+  }
+
     // Imprimir a pilha de documentos processados
+    fprintf(outputFILE, "%up\n", filaDocumentos->total_paginas);
     imprimirPilhaDocumentos(pilhaDocsProcessados, outputFILE);
     liberarPilhaDocumentos(pilhaDocsProcessados);
 }
