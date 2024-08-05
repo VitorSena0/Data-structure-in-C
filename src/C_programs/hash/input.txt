@@ -1,0 +1,7 @@
+3000 32
+5
+3 ufs
+2 ed
+2 abc
+2 fus
+4 cdef
