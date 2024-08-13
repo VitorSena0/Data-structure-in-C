@@ -1,0 +1,7 @@
+3 2
+5
+1 ufs
+3 a b c
+2 cd ef
+2 e d
+1 hash
