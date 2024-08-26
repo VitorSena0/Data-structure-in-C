@@ -26,6 +26,8 @@ void liberarMemArvore(Documento *raiz);
 void imprimirEmOrdem(Documento *raiz, FILE *arqOutput);
 void imprimirEmPreOrdem(Documento *raiz, FILE *arqOutput);
 void imprimirEmPosOrdem(Documento *raiz, FILE *arqOutput);
+int altura(Documento *no);
+void imprimirEstiloArvore(Documento *raiz, int espaco, FILE *arqOutput);
 
 
 //--------------------------------- Funcao principal ---------------------------------
@@ -111,12 +113,16 @@ void processarDocumentos(char *input, char *output) {
         inserirNoArquivo(&raizArvoreBin, novoDocumento); // Inserir o documento na árvore
     }
 
+    fprintf(arqOutput, "Altura: %d\n", altura(raizArvoreBin)); // Imprimir a altura da árvore
+
     fprintf(arqOutput, "EPD:\n"); // Imprimir a árvore em ordem
     imprimirEmOrdem(raizArvoreBin, arqOutput);
     fprintf(arqOutput, "PED:\n"); // Imprimir a árvore em pré-ordem
     imprimirEmPreOrdem(raizArvoreBin, arqOutput);
     fprintf(arqOutput, "EDP:\n"); // Imprimir a árvore em pós-ordem
     imprimirEmPosOrdem(raizArvoreBin, arqOutput);
+
+    imprimirEstiloArvore(raizArvoreBin, 0, arqOutput); // Imprimir a árvore no estilo de árvore
 
     liberarMemArvore(raizArvoreBin);
     fclose(arqInput);
@@ -170,6 +176,20 @@ void liberarMemArvore(Documento *raiz) { // Liberar a memória alocada para a á
     free(raiz);
 }
 
+//--------------- Altura da arvore -----------------
+int altura(Documento *no) {
+    if(!no) {
+        return -1;
+    }
+    int esq = altura(no->esq);
+    int dir = altura(no->dir);
+    if(esq > dir) {
+        return esq + 1;
+    }else{
+        return dir + 1;
+    }
+}
+
 //------------------------------ Imprimir em ordem -------------------------------
 void imprimirEmOrdem(Documento *raiz, FILE *arqOutput) { // Imprimir os documentos em ordem
     if (raiz == NULL) {
@@ -183,6 +203,19 @@ void imprimirEmOrdem(Documento *raiz, FILE *arqOutput) { // Imprimir os document
         fprintf(arqOutput,"%d %s %s %d byte\n", raiz->posInsercao, raiz->nome, raiz->tipoLeitura, raiz->tamArquivo); // Imprimir o documento
     }
     imprimirEmOrdem(raiz->dir, arqOutput); // Imprimir a subárvore direita
+}
+
+void imprimirEstiloArvore(Documento *raiz, int espaco, FILE *arqOutput) {
+    int i;
+    if(raiz){
+        imprimirEstiloArvore(raiz->dir, espaco + 1, arqOutput);
+        fprintf(arqOutput,"\n\n");
+        for(i = 0; i < espaco; i++){
+            fprintf(arqOutput ,"\t");
+        }
+       fprintf(arqOutput ,"%.4s\n", raiz->nome);
+        imprimirEstiloArvore(raiz->esq, espaco + 1, arqOutput);
+    }
 }
 //------------------------------ Imprimir em pre-ordem -------------------------------
 void imprimirEmPreOrdem(Documento *raiz, FILE *arqOutput) { // Imprimir os documentos em pré-ordem
