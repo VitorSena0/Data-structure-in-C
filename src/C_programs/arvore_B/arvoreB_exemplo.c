@@ -1,306 +1,305 @@
-#include<stdlib.h>
-#include<stdio.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
 
-#define ORDER 2 // Ordem da árvore B
-#define MAX_KEYS (ORDER * 2) // Número máximo de chaves em uma página é 2 * ORDER
-#define FALSE 0
-#define TRUE  1
+#define HASH_SIZE 33 // Tamanho máximo do hash
+#define NOME_ARQUIVO 31
+#define TAM_MAX_LINHA 150
 
-typedef long KeyType; // Define o tipo da chave como um número longo
+typedef struct Arquivo {
+    char nome[NOME_ARQUIVO];
+    char hashArquivo[HASH_SIZE];
+    int tamanho;
+} Arquivo;
 
-typedef struct Record {
-  KeyType Key; // Chave do registro
-  /*outros componentes*/
-} Record;
+// Estrutura para nó da árvore-B
+struct BTreeNode {
+    int num_keys; // Número de chaves no nó
+    Arquivo **keys; // Array de chaves (hashes)
+    struct BTreeNode **children; // Array de ponteiros para filhos
+    bool is_leaf; // Indica se o nó é folha
+};
 
-typedef struct BTreeNode* BTreePointer; // Ponteiro para um nó da árvore B
+// Função para criar um novo nó
+struct BTreeNode *createNode(bool is_leaf,int ordem) {
+    struct BTreeNode *newNode = (struct BTreeNode *)malloc(sizeof(struct BTreeNode));
+    if (newNode == NULL) {
+        perror("Falha na alocação de memória");
+        exit(EXIT_FAILURE);
+    }
 
-typedef struct BTreeNode {
-  short numKeys; // Número de chaves no nó
-  Record keys[MAX_KEYS]; // Array de chaves no nó
-  BTreePointer children[MAX_KEYS + 1]; // Ponteiros para subárvores
-} BTreeNode;
+    newNode->keys = (Arquivo **)malloc(sizeof(Arquivo*) * (ordem - 1)); 
+    newNode->children = (struct BTreeNode **)malloc(sizeof(struct BTreeNode*) * ordem);
 
-void Initialize(BTreePointer *Dictionary) {
-  *Dictionary = NULL; // Inicializa a árvore como vazia
+
+
+    newNode->num_keys = 0;
+    newNode->is_leaf = is_leaf;
+    for (int i = 0; i < ordem; i++) {
+        newNode->children[i] = NULL;
+    }
+
+
+    return newNode;
 }
 
-void InOrderTraversal(BTreePointer tree) {
+// Função para dividir um nó filho cheio
+void dividirNoFilho(struct BTreeNode *no, int posicao, int ordemArvore) {
+    struct BTreeNode *filho = no->children[posicao];
+    struct BTreeNode *novoNo = createNode(filho->is_leaf, ordemArvore); // Cria um novo nó com a mesma característica do nó filho
+
+    int metade = ordemArvore / 2;
     int i;
-    if(tree != NULL) {
-        for(i = 0; i < tree->numKeys; i++) {
-            InOrderTraversal(tree->children[i]); // Percorre a subárvore esquerda
-            printf("%ld ", tree->keys[i].Key); // Imprime a chave atual
+
+    novoNo->num_keys = metade - 1; // Define a quantidade de arquivos no novo nó
+
+    // Move as chaves para o novo nó
+    for (i = 0; i < metade - 1; i++) {
+        novoNo->keys[i] = filho->keys[i + metade];
+    }
+
+    // Se não for folha, também move os filhos
+    if (!filho->is_leaf) {
+        for (i = 0; i < metade; i++) {
+            novoNo->children[i] = filho->children[i + metade];
         }
-        InOrderTraversal(tree->children[i]); // Percorre a subárvore direita
     }
-    return;
-}
 
-void Search(Record *x, BTreePointer Node) {
-  long i = 1;
-  if (Node == NULL) {
-    printf("Registro não está presente na árvore\n");
-    return;
-  }
-  while (i < Node->numKeys && x->Key > Node->keys[i-1].Key) i++; // Procura a chave no nó atual
-  if (x->Key == Node->keys[i-1].Key) {
-    *x = Node->keys[i-1]; // Chave encontrada
-    return;
-  }
-  if (x->Key < Node->keys[i-1].Key)
-    Search(x, Node->children[i-1]); // Busca na subárvore à esquerda
-  else
-    Search(x, Node->children[i]); // Busca na subárvore à direita
-}
+    filho->num_keys = metade - 1;
 
-// Insere a chave NewRecord no nó Node, ou seja, insere a chave no nó e o ponteiro para a subárvore à direita da chave
-void InsertIntoNode(BTreePointer Node, Record NewRecord, BTreePointer RightSubtree) {
-  short PositionFound;
-  int k;
-  k = Node->numKeys;  
-  PositionFound = (k > 0);
-  while (PositionFound) {
-    if (NewRecord.Key >= Node->keys[k-1].Key) {
-      PositionFound = FALSE; // A posição correta foi encontrada
-      break;
+    // Ajusta o vetor de filhos do nó pai
+    for (i = no->num_keys; i >= posicao + 1; i--) {
+        no->children[i + 1] = no->children[i];
     }
-    Node->keys[k] = Node->keys[k-1]; // Move a chave para a direita
-    Node->children[k+1] = Node->children[k]; // Move o ponteiro para a direita
-    k--;
-    if (k < 1) PositionFound = FALSE; // Nenhuma posição foi encontrada
-  }
-  Node->keys[k] = NewRecord; // Insere a nova chave
-  Node->children[k+1] = RightSubtree; // Insere o ponteiro para a subárvore
-  Node->numKeys++; // Incrementa o número de chaves
+    no->children[posicao + 1] = novoNo;
+
+    // Ajusta o vetor de arquivos do nó pai
+    for (i = no->num_keys - 1; i >= posicao; i--) {
+        no->keys[i + 1] = no->keys[i];
+    }
+    no->keys[posicao] = filho->keys[metade - 1];
+    no->num_keys++;
 }
 
-// Insere o registro NewRecord na árvore B com raiz Node
-void Insert(Record NewRecord, BTreePointer Node, short *Grew, Record *RecordToReturn, BTreePointer *NewNode) {
-  long i = 1;
-  long j;
-  BTreePointer TempNode;
 
-  if (Node == NULL) {
-    *Grew = TRUE; 
-    (*RecordToReturn) = NewRecord; // RecordToReturn é o registro a ser retornado
-    (*NewNode) = NULL;
-    return;
-  }
 
-  while (i < Node->numKeys && NewRecord.Key > Node->keys[i-1].Key) i++; // Procura a posição correta no nó atual
-
-  if (NewRecord.Key == Node->keys[i-1].Key) {
-    printf("Erro: Registro já está presente\n");
-    *Grew = FALSE;
-    return;
-  }
-
-  if (NewRecord.Key < Node->keys[i-1].Key) i--;
-
-  Insert(NewRecord, Node->children[i], Grew, RecordToReturn, NewNode); // Insere recursivamente na subárvore
-
-  if (!*Grew) return;
-
-  if (Node->numKeys < MAX_KEYS) {
-    InsertIntoNode(Node, *RecordToReturn, *NewNode); // Insere a chave no nó se há espaço
-    *Grew = FALSE;
-    return;
-  }
-
-  /* Overflow: Nó deve ser dividido */
-  TempNode = (BTreePointer)malloc(sizeof(BTreeNode)); // Cria um novo nó
-  TempNode->numKeys = 0;
-  TempNode->children[0] = NULL;
-
-  if (i < ORDER + 1) {
-    InsertIntoNode(TempNode, Node->keys[MAX_KEYS-1], Node->children[MAX_KEYS]); // Insere no novo nó
-    Node->numKeys--;
-    InsertIntoNode(Node, *RecordToReturn, *NewNode);
-  } else {
-    InsertIntoNode(TempNode, *RecordToReturn, *NewNode);
-  }
-  for (j = ORDER + 2; j <= MAX_KEYS; j++)
-    InsertIntoNode(TempNode, Node->keys[j-1], Node->children[j]);
-
-  Node->numKeys = ORDER;
-  TempNode->children[0] = Node->children[ORDER+1];
-  *RecordToReturn = Node->keys[ORDER];
-  *NewNode = TempNode;
+// Função para comparar dois hashes
+int compareHashes(Arquivo a, Arquivo b) {
+    return strcmp(a.hashArquivo, b.hashArquivo);
 }
 
-// Insere o registro NewRecord na árvore B com raiz Root
-void InsertRecord(Record NewRecord, BTreePointer *Root) {
-  short Grew;
-  Record RecordToReturn;
-  BTreeNode *NewNode, *TempNode;
-  Insert(NewRecord, *Root, &Grew, &RecordToReturn, &NewNode); // Insere o novo registro na árvore
-  if (Grew) {
-    TempNode = (BTreeNode *)malloc(sizeof(BTreeNode)); // Cria uma nova raiz
-    TempNode->numKeys = 1;
-    TempNode->keys[0] = RecordToReturn;
-    TempNode->children[1] = NewNode;
-    TempNode->children[0] = *Root;
-    *Root = TempNode; // Atualiza a raiz
-  }
-}
+// Correção na função insertNonFull
+void insertNonFull(struct BTreeNode *node, Arquivo key, int ordem) {
+    int i = node->num_keys - 1;
 
-void Rebuild(BTreePointer CurrentNode, BTreePointer ParentNode, int ParentPosition, short *Shrank) {
-  BTreeNode *Aux;
-  long AuxDisplacement, j;
-  if (ParentPosition < ParentNode->numKeys) {
-    Aux = ParentNode->children[ParentPosition+1]; // Nó à direita do nó atual
-    AuxDisplacement = (Aux->numKeys - ORDER + 1) / 2;
+    Arquivo *newKey = (Arquivo *)malloc(sizeof(Arquivo));
+    if (newKey == NULL) {
+        perror("Falha na alocação de memória para nova chave");
+        exit(EXIT_FAILURE);
+    }
+    strcpy(newKey->nome, key.nome);
+    strcpy(newKey->hashArquivo, key.hashArquivo);
+    newKey->tamanho = key.tamanho;
 
-    CurrentNode->keys[CurrentNode->numKeys] = ParentNode->keys[ParentPosition]; // Transfere a chave do pai para o nó atual
-    CurrentNode->children[CurrentNode->numKeys + 1] = Aux->children[0];
-    CurrentNode->numKeys++;
-
-    if (AuxDisplacement > 0) {
-      for (j = 1; j < AuxDisplacement; j++)
-        InsertIntoNode(CurrentNode, Aux->keys[j-1], Aux->children[j]);
-      ParentNode->keys[ParentPosition] = Aux->keys[AuxDisplacement-1];
-      Aux->numKeys -= AuxDisplacement;
-      for (j = 0; j < Aux->numKeys; j++) Aux->keys[j] = Aux->keys[j + AuxDisplacement];
-      for (j = 0; j <= Aux->numKeys; j++) Aux->children[j] = Aux->children[j + AuxDisplacement];
-      *Shrank = FALSE;
+    if (node->is_leaf) {
+        while (i >= 0 && compareHashes(*node->keys[i], *newKey) > 0) {
+            node->keys[i + 1] = node->keys[i];
+            i--;
+        }
+        node->keys[i + 1] = newKey;
+        node->num_keys++;
     } else {
-      for (j = 1; j <= ORDER; j++)
-        InsertIntoNode(CurrentNode, Aux->keys[j-1], Aux->children[j]);
-      free(Aux);
-      for (j = ParentPosition + 1; j < ParentNode->numKeys; j++) {
-        ParentNode->keys[j-1] = ParentNode->keys[j];
-        ParentNode->children[j] = ParentNode->children[j+1];
-      }
-      ParentNode->numKeys--;
-      if (ParentNode->numKeys >= ORDER) *Shrank = FALSE;
-    }
-  } else {
-    Aux = ParentNode->children[ParentPosition-1]; // Nó à esquerda do nó atual
-    AuxDisplacement = (Aux->numKeys - ORDER + 1) / 2;
-    for (j = CurrentNode->numKeys; j >= 1; j--) CurrentNode->keys[j] = CurrentNode->keys[j-1];
-    CurrentNode->keys[0] = ParentNode->keys[ParentPosition-1];
-    for (j = CurrentNode->numKeys; j >= 0; j--) CurrentNode->children[j+1] = CurrentNode->children[j];
-    CurrentNode->numKeys++;
+        while (i >= 0 && compareHashes(*node->keys[i], *newKey) > 0) {
+            i--;
+        }
+        i++;
 
-    if (AuxDisplacement > 0) {
-      for (j = 1; j < AuxDisplacement; j++)
-        InsertIntoNode(CurrentNode, Aux->keys[Aux->numKeys - j], Aux->children[Aux->numKeys - j + 1]);
-      CurrentNode->children[0] = Aux->children[Aux->numKeys - AuxDisplacement + 1];
-      ParentNode->keys[ParentPosition-1] = Aux->keys[Aux->numKeys - AuxDisplacement];
-      Aux->numKeys -= AuxDisplacement;
-      *Shrank = FALSE;
+        if (node->children[i] == NULL) {
+            node->children[i] = createNode(true, ordem);
+        }
+
+        if (node->children[i]->num_keys == ordem - 1) {
+            splitChild(node, i, ordem);
+            if (compareHashes(*node->keys[i], *newKey) < 0) {
+                i++;
+            }
+        }
+        insertNonFull(node->children[i], key, ordem);
+    }
+}
+
+// Correção na função insert
+void insert(struct BTreeNode **root, Arquivo key, int ordem) {
+    struct BTreeNode *node = *root;
+
+    Arquivo *newKey = (Arquivo *)malloc(sizeof(Arquivo));
+    if (newKey == NULL) {
+        perror("Falha na alocação de memória para nova chave");
+        exit(EXIT_FAILURE);
+    }
+    strcpy(newKey->nome, key.nome);
+    strcpy(newKey->hashArquivo, key.hashArquivo);
+    newKey->tamanho = key.tamanho;
+
+    if (node == NULL) {
+        *root = createNode(true, ordem);
+        (*root)->keys[0] = newKey;
+        (*root)->num_keys = 1;
     } else {
-      for (j = 1; j <= ORDER; j++)
-        InsertIntoNode(CurrentNode, Aux->keys[Aux->numKeys - j], Aux->children[Aux->numKeys - j + 1]);
-      CurrentNode->children[0] = Aux->children[0];
-      free(Aux);
-      ParentNode->numKeys--;
-      if (ParentNode->numKeys >= ORDER) *Shrank = FALSE;
+        if (node->num_keys == ordem - 1) {
+            struct BTreeNode *new_root = createNode(false, ordem);
+            new_root->children[0] = node;
+            splitChild(new_root, 0, ordem);
+            *root = new_root;
+        }
+        insertNonFull(*root, *newKey, ordem);
     }
-  }
 }
 
-void Remove(Record RecordToRemove, BTreePointer *Root, short *Shrank) {
-  long j, NotFound;
-  long k = 1;
-  BTreePointer TempNode;
-  if (*Root == NULL) {
-    printf("Erro: Registro não está na árvore\n");
-    *Shrank = FALSE;
-    return;
-  }
-  TempNode = *Root;
-  NotFound = (k > TempNode->numKeys);
-  while (!NotFound && RecordToRemove.Key > TempNode->keys[k-1].Key) {
-    k++;
-    NotFound = (k > TempNode->numKeys);
-  }
-  if (!NotFound && RecordToRemove.Key == TempNode->keys[k-1].Key) {
-    if (TempNode->children[k-1] == NULL) {
-      TempNode->numKeys--;
-      for (j = k; j <= TempNode->numKeys; j++) {
-        TempNode->keys[j-1] = TempNode->keys[j];
-        TempNode->children[j] = TempNode->children[j+1];
+
+// Função para buscar um arquivo pelo hash
+struct BTreeNode* buscarArquivoPorHash(struct BTreeNode* root, const char* hashProcurado) {
+    int i = 0;
+    // Encontra a primeira chave maior ou igual ao hash procurado
+    while (i < root->num_keys && strcmp(root->keys[i]->hashArquivo, hashProcurado) < 0) {
+        i++;
+    }
+
+    // Se a chave for igual ao hash procurado, retorna o nó
+    if (i < root->num_keys && strcmp(root->keys[i]->hashArquivo, hashProcurado) == 0) {
+        return root;
+    }
+
+    // Se o nó for folha, o hash não está na árvore
+    if (root->is_leaf) {
+        return NULL;
+    }
+
+    // Busca no filho apropriado
+    return buscarArquivoPorHash(root->children[i], hashProcurado);
+}
+
+
+// Função para imprimir o conteúdo de um nó
+void imprimeNo(struct BTreeNode* node, FILE* output, int profundidade) {
+    for (int i = 0; i < node->num_keys; i++) {
+        fprintf(output, "%s:size=%d,hash=%s\n", 
+                node->keys[i]->nome, node->keys[i]->tamanho, node->keys[i]->hashArquivo);
+    }
+}
+
+// Função para liberar a memória alocada para a árvore-B
+void liberarMemArvore(struct BTreeNode* node) {
+    if (node != NULL) {
+        // Libera a memória de cada filho
+        for (int i = 0; i <= node->num_keys; i++) {
+            liberarMemArvore(node->children[i]);
+        }
+        // Libera o array de chaves e filhos
+        free(node->keys);
+        free(node->children);
+        free(node);
+    }
+}
+
+
+// Função para percorrer e imprimir a árvore-B em ordem
+void traverse(struct BTreeNode *root) {
+    if (root != NULL) {
+        int i;
+        for (i = 0; i < root->num_keys; i++) {
+            traverse(root->children[i]);
+            printf("%s ", root->keys[i]->hashArquivo);
+        }
+        traverse(root->children[i]);
+    }
+}
+
+// Função principal para testar a implementação da árvore-B
+int main(int argc, char *argv[]) {
+    struct BTreeNode *root = NULL;
+
+    if(argc != 3) {
+        printf("Uso: %s <arquivo_entrada>\n", argv[0]);
+        return 1;
+    }
+
+    FILE *input = fopen(argv[1], "r");
+    FILE *output = fopen(argv[2], "w");
+
+    if (input == NULL || output == NULL) {
+        perror("Erro ao abrir arquivos");
+        return 1;
+    }
+
+    int ordemArvore;
+    int qtdArquivos;
+
+    fscanf(input, "%d", &ordemArvore);
+    fscanf(input, "%d", &qtdArquivos);
+
+    for(int i = 0; i < qtdArquivos; i++) {
+        Arquivo arq;
+        fscanf(input, "%s %d %s", arq.nome, &arq.tamanho, arq.hashArquivo);
+        insert(&root, arq, ordemArvore);
+    }
+
+
+    int qtdOperacoes;
+    char linha[TAM_MAX_LINHA];
+    fscanf(input, "%d", &qtdOperacoes);
+
+  for (int i = 0; i < qtdOperacoes; i++) {
+      if (fgets(linha, TAM_MAX_LINHA, input) != NULL) {
+          // Remove o caractere de nova linha se ele existir
+          linha[strcspn(linha, "\n")] = 0;
+
+          if (strlen(linha) == 0) {
+              // Se a linha estiver vazia, continue para a próxima iteração
+              continue;
+          }
+
+
+          char operacao[10];
+          char *palavraTok = strtok(linha, " ");
+          if (palavraTok != NULL) {
+              strcpy(operacao, palavraTok);
+
+              if (strcmp(operacao, "INSERT") == 0) {
+                  Arquivo arq;
+                  palavraTok = strtok(NULL, " ");
+                  strcpy(arq.nome, palavraTok);
+                  palavraTok = strtok(NULL, " ");
+                  arq.tamanho = atoi(palavraTok);
+                  palavraTok = strtok(NULL, " ");
+                  strcpy(arq.hashArquivo, palavraTok);
+                  insert(&root, arq, ordemArvore);
+
+              } else if (strcmp(operacao, "SELECT") == 0) {
+                  char hashProcurado[HASH_SIZE];
+                  palavraTok = strtok(NULL, " ");
+                  strcpy(hashProcurado, palavraTok);
+                  struct BTreeNode *noEncontrado = buscarArquivoPorHash(root, hashProcurado);
+                  if (noEncontrado != NULL) {
+                      fprintf(output, "[%s]\n", hashProcurado);
+                      imprimeNo(noEncontrado, output, 1);
+                  } else {
+                      fprintf(output, "Arquivo com hash %s não encontrado.\n", hashProcurado);
+                  }
+              } else {
+                  printf("Operação desconhecida: %s\n", operacao);
+              }
+          } else {
+              printf("Linha inválida\n");
+          }
       }
-      *Shrank = (TempNode->numKeys < ORDER);
-      return;
-    }
-    Remove(TempNode->keys[k-1], &TempNode->children[k], Shrank);
-    if (*Shrank) Rebuild(TempNode->children[k], TempNode, k, Shrank);
-    if (!*Shrank) return;
-  } else {
-    if (RecordToRemove.Key > TempNode->keys[k-1].Key) k++;
-    Remove(RecordToRemove, &TempNode->children[k-1], Shrank);
-    if (*Shrank) Rebuild(TempNode->children[k-1], TempNode, k-1, Shrank);
   }
-}
 
-void RemoveRecord(Record RecordToRemove, BTreePointer *Root) {
-  short Shrank;
-  BTreeNode *TempNode;
-  Remove(RecordToRemove, Root, &Shrank);
-  if (Shrank && (*Root)->numKeys == 0) {
-    TempNode = *Root;
-    *Root = TempNode->children[0];
-    free(TempNode);
-  }
-}
 
-void PrintTree(BTreePointer pTree, int Level) {
-  int i;
-  if (pTree == NULL) return;
-  printf("Nivel %d: ", Level);
-  for (i = 0; i < pTree->numKeys; i++)
-    printf("%ld ", (long)pTree->keys[i].Key);
-  putchar('\n');
-  Level++;
-  for (i = 0; i <= pTree->numKeys; i++)
-    PrintTree(pTree->children[i], Level);
-}
+    //liberarMemArvore(root);
+    fclose(input);
+    fclose(output);
 
-void TestTree(BTreePointer pTree, int Level, int *Ascending) {
-  int i;
-  if (pTree == NULL) return;
-  for (i = 0; i < pTree->numKeys; i++) {
-    if (Level > 0 && pTree->keys[i].Key <= *Ascending) {
-      printf("Erro: Chave fora de ordem: %ld\n", pTree->keys[i].Key);
-      exit(1);
-    }
-    *Ascending = pTree->keys[i].Key;
-  }
-  for (i = 0; i <= pTree->numKeys; i++)
-    TestTree(pTree->children[i], Level+1, Ascending);
-}
-
-int main() {
-  BTreePointer Dictionary;
-  Record x;
-  int Ascending;
-  short option;
-  Initialize(&Dictionary);
-  do {
-    scanf("%ld", &x.Key); // Lê a chave
-    if (x.Key != 0) {
-      InsertRecord(x, &Dictionary); // Insere o registro na árvore
-      printf("Inserção de: %ld\n", x.Key);
-      PrintTree(Dictionary, 0); // Imprime a árvore após a inserção
-      Ascending = 0;
-      TestTree(Dictionary, 0, &Ascending); // Testa a integridade da árvore
-    }
-  } while (x.Key != 0);
-
-  do {
-    scanf("%ld", &x.Key); // Lê a chave a ser removida
-    if (x.Key != 0) {
-      RemoveRecord(x, &Dictionary); // Remove o registro da árvore
-      printf("Remoção de: %ld\n", x.Key);
-      PrintTree(Dictionary, 0); // Imprime a árvore após a remoção
-      Ascending = 0;
-      TestTree(Dictionary, 0, &Ascending); // Testa a integridade da árvore
-    }
-  } while (x.Key != 0);
-
-  InOrderTraversal(Dictionary); // Imprime as chaves em ordem
-  return 0;
+    return 0;
 }
