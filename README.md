@@ -1,6 +1,6 @@
 # Data Structure in C
 
-Este repositório contém projetos desenvolvidos de Estrutura de Dados na Universidade Federal de Sergipe (UFS). Os projetos foram feitos por mim, e a elaboração dos problemas foram elaboradas pelo professor Bruno Prado.
+Este repositório contém projetos desenvolvidos usando Estrutura de Dados. Os projetos foram feitos por mim, e a elaboração dos problemas foram elaboradas pelo professor Bruno Prado.
 
 ## Estruturas de Dados
 
